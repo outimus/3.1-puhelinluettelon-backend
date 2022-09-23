@@ -1,8 +1,11 @@
 const express = require('express')
 const app = express()
+const morgan = require("morgan")
+
+morgan.token("body", (req) => JSON.stringify(req.body))
 
 app.use(express.json())
-
+app.use(morgan("tiny"))
 
 let persons = [
     {
@@ -61,7 +64,7 @@ app.delete('/api/persons/:id', (request, response) => {
   response.status(204).end()
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', morgan(":body"), (request, response) => {
   const body = request.body
 
   if (!body.name) {
@@ -76,7 +79,7 @@ app.post('/api/persons', (request, response) => {
     })
   }
 
-  if (!persons.includes(body.name)) {
+  if (persons.map(x => x.name === body.name).includes(true)) {
     return response.status(400).json({
       error: 'name must be unique'
     })
