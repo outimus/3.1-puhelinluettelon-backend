@@ -1,19 +1,19 @@
-const mongoose = require('mongoose')
+const mongoose = require("mongoose")
 
-if (process.argv.length<3) {
-  console.log('give password as argument')
-  process.exit(1)
-}
-
-const password = process.argv[2]
-
-const url = `mongodb+srv://OM:${password}@cluster0.vkmxypp.mongodb.net/puhelinluettelo_App`
+const url = process.env.MONGODB_URI
 
 mongoose.connect(url)
+.then(result => {
+    console.log("connected to MongoDB")
+})
+.catch((error) => {
+    console.log("error connecting to MongoDB: ", error.message)
+})
 
+//Pitääkö olla id?
 const personSchema = new mongoose.Schema({
-  name: String,
-  number: String,
+    name: String,
+    number: String,
 })
 
 const Person = mongoose.model('Person', personSchema)
@@ -48,3 +48,5 @@ if (process.argv.length > 3) {
     })
     mongoose.connection.close()
   })*/
+
+module.exports = mongoose.model('Person', personSchema)
