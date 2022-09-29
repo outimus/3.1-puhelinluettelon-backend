@@ -5,6 +5,7 @@ const cors = require("cors")
 const { response } = require('express')
 require('dotenv').config()
 const Person = require("./models/person")
+const { default: mongoose } = require('mongoose')
 
 morgan.token("body", (req) => JSON.stringify(req.body))
 
@@ -13,7 +14,46 @@ app.use(morgan("tiny"))
 app.use(cors())
 app.use(express.static('build'))
 
-/*let määrä = persons.length*/
+const url = process.env.MONGODB_URI
+mongoose.connect(url).then(result => {
+  console.log("connected to MongoDB")
+})
+.catch((error) => {
+  console.log("error connecting to MongoDB: ", error.message)
+})
+
+if (!process.argv[3]) {
+  console.log("phonebook:")
+  Person.find({}).then(result => {
+      result.forEach(person => {
+        console.log(person.name, person.number)
+      })
+      mongoose.connection.close()
+    })
+}
+
+const addedName = process.argv[3]
+const addedNr = process.argv[4]
+
+if (process.argv.length > 3) {
+  const person = new Person({
+      name: process.argv[3],
+      number: process.argv[4],    
+  })
+  person.save().then(result => {
+      console.log(`added ${addedName} number ${addedNr} to phonebook`)
+      mongoose.connection.close()
+    })
+}
+
+/*Person.find({}).then(result => {
+  result.forEach(person => {
+    console.log(person)
+  })
+  mongoose.connection.close()
+})*/
+
+let määrä = process.argv.length
 let pvm = new Date()
 
 const tunniste = (min, max) => {
