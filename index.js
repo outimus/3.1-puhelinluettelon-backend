@@ -6,13 +6,23 @@ const { response } = require('express')
 require('dotenv').config()
 const Person = require("./models/person")
 const { default: mongoose } = require('mongoose')
+const { db } = require('./models/person')
+
+const requestLogger = (request, response, next) => {
+  console.log('Method:', request.method)
+  console.log('Path:  ', request.path)
+  console.log('Body:  ', request.body)
+  console.log('---')
+  next()
+}
 
 morgan.token("body", (req) => JSON.stringify(req.body))
 
+app.use(express.static('build'))
 app.use(express.json())
+app.use(requestLogger)
 app.use(morgan("tiny"))
 app.use(cors())
-app.use(express.static('build'))
 
 const url = process.env.MONGODB_URI
 mongoose.connect(url).then(result => {
@@ -28,7 +38,6 @@ if (!process.argv[3]) {
       result.forEach(person => {
         console.log(person.name, person.number)
       })
-      mongoose.connection.close()
     })
 }
 
@@ -42,7 +51,6 @@ if (process.argv.length > 3) {
   })
   person.save().then(result => {
       console.log(`added ${addedName} number ${addedNr} to phonebook`)
-      mongoose.connection.close()
     })
 }
 
@@ -53,8 +61,6 @@ if (process.argv.length > 3) {
   mongoose.connection.close()
 })*/
 
-let määrä = process.argv.length
-let pvm = new Date()
 
 const tunniste = (min, max) => {
   return (
@@ -68,26 +74,30 @@ app.get('/api/persons', (request, response) => {
   })
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  persons = persons.filter(person => person.id !== id)
-
-  response.status(204).end()
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
 app.get('/info', (req, res) => {
+  const määrä = 0 // Miten saan määrän muuttujaan?
+  let pvm = new Date()
   res.send(`<h4>Phonebook has info for ${määrä} people<h4/><h4>${pvm}<h4/>`)
 })
 
 app.get('/api/persons/:id', (request, response) => {
-  Person.findById(request.params.id).then(person => {
-    response.json(person)
+  Person.findById(request.params.id)
+  .then(person => {
+    if (person) {
+      response.send(person.number)
+    } else {
+      response.status(404).end()
+    }
   })
-  if (person) {
-    response.send(person.number)
-  } else {
-    response.status(404).end()
-  }
+  .catch(error => next(error))
 })
 
 app.post('/api/persons', morgan(":body"), (request, response) => {
@@ -103,16 +113,17 @@ app.post('/api/persons', morgan(":body"), (request, response) => {
       error: "number is missing"
     })
   }
-  if (persons.map(x => x.name === body.name).includes(true)) {
+  // Tämä ei toimi. "body.map" on väärin.
+  /*if (body.map(x => x.name === body.name).includes(true)) {
     return response.status(400).json({
       error: 'name must be unique'
     })
-  }
-  const person = {
-    id: tunniste(määrä, 100),
+  }*/
+  const person = new Person({
+    id: tunniste(10, 100),
     name: body.name,
-    number: body.number
-  }
+    number: body.number,
+  })
   person.save().then(savedPerson => {
     response.json(savedPerson)
   })
@@ -123,6 +134,16 @@ const unknownEndpoint = (request, response) => {
 }
 
 app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.log(error.message)
+  if (error.name === "CastError") {
+    return response.status(400).send({error: "malformatted id"})
+  }
+  next(error)
+}
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
